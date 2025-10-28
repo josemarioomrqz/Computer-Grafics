@@ -1,6 +1,7 @@
 // Jose Marquez
 // Assignment 2 - Computer Graphics
 // Create a unit square (1x1) in a 3D space
+// Centered at the origin (0,0,0) in the XY plane
 
 
 class Square {
