@@ -8,4 +8,4 @@
 #### Image: 
 
 
-<img src = "./joseimg3 copia.jpg" width = "300"> 
+<img src = "./joseimg3 copia.jpg" width = "300">  
