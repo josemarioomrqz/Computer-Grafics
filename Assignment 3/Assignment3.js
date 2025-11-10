@@ -120,5 +120,84 @@ class Cube {
 
         gl.drawArrays(gl.TRIANGLES, 0, this.positionBuffer.numVertices);
     }
+
 }
+
+// ---- Minimal step to actually see something on the canvas ----
+// Tiny shader pair (position-only, solid color).
+const VS_SOURCE = `
+attribute vec3 a_Position;
+void main() {
+  gl_Position = vec4(a_Position, 1.0);
+}
+`;
+const FS_SOURCE = `
+precision mediump float;
+void main() {
+  gl_FragColor = vec4(0.9, 0.4, 0.2, 1.0);
+}
+`;
+
+// Minimal helpers to compile/link shaders (no extras).
+function compileShader(gl, type, source) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, source);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    const info = gl.getShaderInfoLog(sh);
+    gl.deleteShader(sh);
+    throw new Error("Shader compile error: " + info);
+  }
+  return sh;
+}
+function createProgram(gl, vsSource, fsSource) {
+  const vs = compileShader(gl, gl.VERTEX_SHADER, vsSource);
+  const fs = compileShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    const info = gl.getProgramInfoLog(prog);
+    gl.deleteProgram(prog);
+    throw new Error("Program link error: " + info);
+  }
+  return prog;
+}
+
+// Minimal main() to set up WebGL and draw the cube (no matrices yet).
+function main() {
+  const canvas = document.getElementById("glCanvas");
+  if (!canvas) {
+    console.error("No canvas with id='glCanvas' found. - Assignment3.js:172");
+    return;
+  }
+
+  // Match drawing buffer to CSS size so viewport is correct.
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+
+  const gl = canvas.getContext("webgl");
+  if (!gl) {
+    alert("WebGL not supported");
+    return;
+  }
+
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.clearColor(0.05, 0.05, 0.08, 1.0);
+  gl.enable(gl.DEPTH_TEST);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  const program = createProgram(gl, VS_SOURCE, FS_SOURCE);
+  gl.useProgram(program);
+
+  const a_Position = gl.getAttribLocation(program, "a_Position");
+
+  // Create and draw the cube
+  const cube = new Cube(gl);
+  cube.draw(a_Position);
+}
+
+// Run when the page finishes loading.
+window.onload = main;
 
