@@ -112,7 +112,7 @@ class Cube {
 
 //  Part II: basic draw helpers for different solids 
 
-// Generic helper: given geometry (vertices) and topology,
+// Generic helper: given geometry and topology,
 // build a buffer and draw it immediately.
 function createAndDrawFromGeometry(gl, positionAttribLocation, vertices, faces) {
   const data = [];
@@ -426,7 +426,7 @@ function makeIdentity() {
   ]);
 }
 
-// Column-major 4x4 multiply: out = a * b
+// Column-major 4x4
 function multiplyMat4(a, b) {
   const out = new Float32Array(16);
   for (let col = 0; col < 4; col++) {
@@ -512,7 +512,7 @@ function main() {
 
   const u_MVP = gl.getUniformLocation(program, "u_MVP");
 
-  // Build a simple MVP matrix: perspective * view * model
+  // Build a simple MVP matrix
   const aspect = canvas.width / canvas.height;
   const proj = makePerspective(degToRad(45), aspect, 0.1, 10.0);
 
@@ -529,8 +529,15 @@ function main() {
 
   gl.uniformMatrix4fv(u_MVP, false, mvp);
 
-  // Create and draw the cube via the Part II function
-  DrawCube(gl, a_Position);
+  // Create and draw the shapes in the 3D space
+  //DrawCube(gl, a_Position);
+  //DrawTetrahedron(gl, a_Position);
+  //DrawDodecahedron(gl, a_Position);
+  //DrawIcosahedron(gl, a_Position);
+  DrawSphere(gl, a_Position);
+  
+
+
 }
 
 // Run when the page finishes loading.
