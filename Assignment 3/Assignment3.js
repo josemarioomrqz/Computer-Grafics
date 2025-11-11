@@ -449,6 +449,15 @@ function makeTranslation(tx, ty, tz) {
   return m;
 }
 
+function makeScale(sx, sy, sz) {
+  return new Float32Array([
+    sx, 0,  0,  0,
+    0,  sy, 0,  0,
+    0,  0,  sz, 0,
+    0,  0,  0,  1
+  ]);
+}
+
 function makeRotationX(angleRad) {
   const c = Math.cos(angleRad);
   const s = Math.sin(angleRad);
@@ -482,11 +491,44 @@ function makePerspective(fovRad, aspect, near, far) {
   ]);
 }
 
+function makeLookAt(eye, target, up) {
+  const ex = eye[0], ey = eye[1], ez = eye[2];
+  const tx = target[0], ty = target[1], tz = target[2];
+  const ux = up[0], uy = up[1], uz = up[2];
+
+  // f = normalize(target - eye)
+  let fx = tx - ex, fy = ty - ey, fz = tz - ez;
+  const fLen = Math.hypot(fx, fy, fz) || 1;
+  fx /= fLen; fy /= fLen; fz /= fLen;
+
+  // s = normalize(cross(f, up))
+  let sx = fy * uz - fz * uy;
+  let sy = fz * ux - fx * uz;
+  let sz = fx * uy - fy * ux;
+  const sLen = Math.hypot(sx, sy, sz) || 1;
+  sx /= sLen; sy /= sLen; sz /= sLen;
+
+  // u = cross(s, f)
+  const ux2 = sy * fz - sz * fy;
+  const uy2 = sz * fx - sx * fz;
+  const uz2 = sx * fy - sy * fx;
+
+  return new Float32Array([
+    sx,  ux2, -fx, 0,
+    sy,  uy2, -fy, 0,
+    sz,  uz2, -fz, 0,
+    -(sx * ex + sy * ey + sz * ez),
+    -(ux2 * ex + uy2 * ey + uz2 * ez),
+     fx * ex + fy * ey + fz * ez,
+    1
+  ]);
+}
+
 // Minimal main() to set up WebGL and draw the cube
 function main() {
   const canvas = document.getElementById("glCanvas");
   if (!canvas) {
-    console.error("No canvas with id='glCanvas' found. - Assignment3.js:489");
+    console.error("No canvas with id='glCanvas' found. - Assignment3.js:531");
     return;
   }
 
@@ -512,29 +554,86 @@ function main() {
 
   const u_MVP = gl.getUniformLocation(program, "u_MVP");
 
-  // Build a simple MVP matrix
+  // Build projection matrix
   const aspect = canvas.width / canvas.height;
-  const proj = makePerspective(degToRad(45), aspect, 0.1, 10.0);
+  const proj = makePerspective(degToRad(45), aspect, 0.1, 50.0);
 
-  // View: move the camera back a bit on -Z
-  const view = makeTranslation(0, 0, -2.5);
-
-  // Model: rotate cube around X and Y so it looks 3D
-  const rotX = makeRotationX(degToRad(30));
-  const rotY = makeRotationY(degToRad(30));
-  const model = multiplyMat4(rotY, rotX);
+  // Camera: place it above and back, looking toward the origin
+  const eye = [4, 3, 6];
+  const target = [0, 0, 0];
+  const up = [0, 1, 0];
+  const view = makeLookAt(eye, target, up);
 
   const vp = multiplyMat4(proj, view);
-  const mvp = multiplyMat4(vp, model);
 
-  gl.uniformMatrix4fv(u_MVP, false, mvp);
+  // Small helper inside main: set MVP and draw
+  function drawWithModel(modelMatrix, drawFunc) {
+    const mvp = multiplyMat4(vp, modelMatrix);
+    gl.uniformMatrix4fv(u_MVP, false, mvp);
+    drawFunc(gl, a_Position);
+  }
 
-  // Create and draw the shapes in the 3D space
-  DrawCube(gl, a_Position);
-  DrawTetrahedron(gl, a_Position);
-  DrawDodecahedron(gl, a_Position);
-  DrawIcosahedron(gl, a_Position);
-  DrawSphere(gl, a_Position);
+  // --- Scene layout for Part III ---
+
+  // 1) Ground: a large, flat cube scaled in XZ
+  {
+    const S = makeScale(6, 0.1, 6);
+    const T = makeTranslation(0, -0.6, 0);
+    const model = multiplyMat4(T, S); // T * S
+    drawWithModel(model, DrawCube);
+  }
+
+  // 2) Left building: tall rectangular cube
+  {
+    const S = makeScale(0.8, 1.8, 0.8);
+    const R = makeRotationY(degToRad(-15));
+    const RS = multiplyMat4(R, S);
+    const T = makeTranslation(-2, 0.4, -1);
+    const model = multiplyMat4(T, RS); // T * R * S
+    drawWithModel(model, DrawCube);
+  }
+
+  // 3) Left building roof: tetrahedron on top
+  {
+    const S = makeScale(1.0, 1.0, 1.0);
+    const T = makeTranslation(-2, 1.5, -1);
+    const model = multiplyMat4(T, S);
+    drawWithModel(model, DrawTetrahedron);
+  }
+
+  // 4) Right building: another tall cube
+  {
+    const S = makeScale(0.9, 1.5, 0.9);
+    const R = makeRotationY(degToRad(20));
+    const RS = multiplyMat4(R, S);
+    const T = makeTranslation(2, 0.3, -0.5);
+    const model = multiplyMat4(T, RS);
+    drawWithModel(model, DrawCube);
+  }
+
+  // 5) Right building roof: dodecahedron as a fancy dome
+  {
+    const S = makeScale(0.9, 0.9, 0.9);
+    const T = makeTranslation(2, 1.3, -0.5);
+    const model = multiplyMat4(T, S);
+    drawWithModel(model, DrawDodecahedron);
+  }
+
+  // 6) Central object: sphere as a fountain/statue
+  {
+    const S = makeScale(1.0, 1.0, 1.0);
+    const T = makeTranslation(0, 0.2, 0);
+    const model = multiplyMat4(T, S);
+    drawWithModel(model, DrawSphere);
+  }
+
+  // 7) Small icosahedron "rain drop" above the scene
+  {
+    const S = makeScale(0.3, 0.3, 0.3);
+    const T = makeTranslation(0.5, 2.0, 0.5);
+    const model = multiplyMat4(T, S);
+    drawWithModel(model, DrawIcosahedron);
+  }
 
 }
 
