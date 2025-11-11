@@ -530,13 +530,11 @@ function main() {
   gl.uniformMatrix4fv(u_MVP, false, mvp);
 
   // Create and draw the shapes in the 3D space
-  //DrawCube(gl, a_Position);
-  //DrawTetrahedron(gl, a_Position);
-  //DrawDodecahedron(gl, a_Position);
-  //DrawIcosahedron(gl, a_Position);
+  DrawCube(gl, a_Position);
+  DrawTetrahedron(gl, a_Position);
+  DrawDodecahedron(gl, a_Position);
+  DrawIcosahedron(gl, a_Position);
   DrawSphere(gl, a_Position);
-  
-
 
 }
 
