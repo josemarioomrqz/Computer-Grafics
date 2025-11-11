@@ -127,8 +127,9 @@ class Cube {
 // Tiny shader pair (position-only, solid color).
 const VS_SOURCE = `
 attribute vec3 a_Position;
+uniform mat4 u_MVP;
 void main() {
-  gl_Position = vec4(a_Position, 1.0);
+  gl_Position = u_MVP * vec4(a_Position, 1.0);
 }
 `;
 const FS_SOURCE = `
@@ -165,11 +166,81 @@ function createProgram(gl, vsSource, fsSource) {
   return prog;
 }
 
+// ---- Minimal 4x4 matrix helpers for MVP ----
+function degToRad(d) {
+  return d * Math.PI / 180;
+}
+
+function makeIdentity() {
+  return new Float32Array([
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1
+  ]);
+}
+
+// Column-major 4x4 multiply: out = a * b
+function multiplyMat4(a, b) {
+  const out = new Float32Array(16);
+  for (let col = 0; col < 4; col++) {
+    for (let row = 0; row < 4; row++) {
+      let sum = 0;
+      for (let k = 0; k < 4; k++) {
+        sum += a[row + k * 4] * b[k + col * 4];
+      }
+      out[row + col * 4] = sum;
+    }
+  }
+  return out;
+}
+
+function makeTranslation(tx, ty, tz) {
+  const m = makeIdentity();
+  m[12] = tx;
+  m[13] = ty;
+  m[14] = tz;
+  return m;
+}
+
+function makeRotationX(angleRad) {
+  const c = Math.cos(angleRad);
+  const s = Math.sin(angleRad);
+  return new Float32Array([
+    1, 0, 0, 0,
+    0,  c, s, 0,
+    0, -s, c, 0,
+    0, 0, 0, 1
+  ]);
+}
+
+function makeRotationY(angleRad) {
+  const c = Math.cos(angleRad);
+  const s = Math.sin(angleRad);
+  return new Float32Array([
+     c, 0, -s, 0,
+     0, 1,  0, 0,
+     s, 0,  c, 0,
+     0, 0,  0, 1
+  ]);
+}
+
+function makePerspective(fovRad, aspect, near, far) {
+  const f = 1.0 / Math.tan(fovRad / 2);
+  const rangeInv = 1.0 / (near - far);
+  return new Float32Array([
+    f / aspect, 0, 0, 0,
+    0, f, 0, 0,
+    0, 0, (near + far) * rangeInv, -1,
+    0, 0, near * far * 2 * rangeInv, 0
+  ]);
+}
+
 // Minimal main() to set up WebGL and draw the cube (no matrices yet).
 function main() {
   const canvas = document.getElementById("glCanvas");
   if (!canvas) {
-    console.error("No canvas with id='glCanvas' found. - Assignment3.js:172");
+    console.error("No canvas with id='glCanvas' found. - Assignment3.js:243");
     return;
   }
 
@@ -193,6 +264,25 @@ function main() {
 
   const a_Position = gl.getAttribLocation(program, "a_Position");
 
+  const u_MVP = gl.getUniformLocation(program, "u_MVP");
+
+  // --- Build a simple MVP matrix: perspective * view * model ---
+  const aspect = canvas.width / canvas.height;
+  const proj = makePerspective(degToRad(45), aspect, 0.1, 10.0);
+
+  // View: move the camera back a bit on -Z
+  const view = makeTranslation(0, 0, -2.5);
+
+  // Model: rotate cube around X and Y so it looks 3D
+  const rotX = makeRotationX(degToRad(30));
+  const rotY = makeRotationY(degToRad(30));
+  const model = multiplyMat4(rotY, rotX);
+
+  const vp = multiplyMat4(proj, view);
+  const mvp = multiplyMat4(vp, model);
+
+  gl.uniformMatrix4fv(u_MVP, false, mvp);
+
   // Create and draw the cube
   const cube = new Cube(gl);
   cube.draw(a_Position);
@@ -200,4 +290,3 @@ function main() {
 
 // Run when the page finishes loading.
 window.onload = main;
-
