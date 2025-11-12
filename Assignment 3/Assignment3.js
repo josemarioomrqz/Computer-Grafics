@@ -124,7 +124,27 @@ function createAndDrawFromGeometry(gl, positionAttribLocation, vertices, faces) 
       data.push(vert[0], vert[1], vert[2]);
     }
   }
-// Helper that also assigns one color per face
+
+  const positions = new Float32Array(data);
+
+  const buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+  gl.enableVertexAttribArray(positionAttribLocation);
+  gl.vertexAttribPointer(
+    positionAttribLocation,
+    3,
+    gl.FLOAT,
+    false,
+    0,
+    0
+  );
+
+  gl.drawArrays(gl.TRIANGLES, 0, positions.length / 3);
+}
+
+// Helper that also assigns one color per face (same color for the 3 vertices of that face).
 function createAndDrawFromGeometryWithFaceColors(
   gl,
   positionAttribLocation,
@@ -175,27 +195,6 @@ function createAndDrawFromGeometryWithFaceColors(
   gl.enableVertexAttribArray(colorAttribLocation);
   gl.vertexAttribPointer(
     colorAttribLocation,
-    3,
-    gl.FLOAT,
-    false,
-    0,
-    0
-  );
-
-  gl.drawArrays(gl.TRIANGLES, 0, positions.length / 3);
-}
-  
-  
-  
-  const positions = new Float32Array(data);
-
-  const buffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
-
-  gl.enableVertexAttribArray(positionAttribLocation);
-  gl.vertexAttribPointer(
-    positionAttribLocation,
     3,
     gl.FLOAT,
     false,
@@ -400,7 +399,7 @@ function DrawIcosahedron(gl, positionAttribLocation, colorAttribLocation) {
 }
 // DrawDodecahedron: regular dodecahedron built from a common coordinate set.
 // Uses 20 vertices and triangulated pentagonal faces.
-function DrawDodecahedron(gl, positionAttribLocation) {
+function DrawDodecahedron(gl, positionAttribLocation, colorAttribLocation) {
   const phi = (1 + Math.sqrt(5)) / 2;
   const invPhi = 1 / phi;
 
@@ -705,7 +704,7 @@ function makeLookAt(eye, target, up) {
 function main() {
   const canvas = document.getElementById("glCanvas");
   if (!canvas) {
-    console.error("No canvas with id='glCanvas' found. - Assignment3.js:708");
+    console.error("No canvas with id='glCanvas' found. - Assignment3.js:707");
     return;
   }
 
