@@ -112,7 +112,7 @@ class Cube {
 
 //  Part II: basic draw helpers for different solids 
 
-// Generic helper: given geometry and topology,
+// Generic helper given geometry and topology,
 // build a buffer and draw it immediately.
 function createAndDrawFromGeometry(gl, positionAttribLocation, vertices, faces) {
   const data = [];
@@ -124,6 +124,69 @@ function createAndDrawFromGeometry(gl, positionAttribLocation, vertices, faces) 
       data.push(vert[0], vert[1], vert[2]);
     }
   }
+// Helper that also assigns one color per face
+function createAndDrawFromGeometryWithFaceColors(
+  gl,
+  positionAttribLocation,
+  colorAttribLocation,
+  vertices,
+  faces,
+  faceColors
+) {
+  const posData = [];
+  const colData = [];
+
+  for (let f = 0; f < faces.length; f++) {
+    const tri = faces[f];        // [i0, i1, i2]
+    const color = faceColors[f]; // [r, g, b]
+
+    for (let v = 0; v < 3; v++) {
+      const idx = tri[v];
+      const vert = vertices[idx];
+
+      // positions
+      posData.push(vert[0], vert[1], vert[2]);
+      // same color for each vertex of this face
+      colData.push(color[0], color[1], color[2]);
+    }
+  }
+
+  const positions = new Float32Array(posData);
+  const colors    = new Float32Array(colData);
+
+  // Position buffer
+  const posBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(positionAttribLocation);
+  gl.vertexAttribPointer(
+    positionAttribLocation,
+    3,
+    gl.FLOAT,
+    false,
+    0,
+    0
+  );
+
+  // Color buffer
+  const colBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, colBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(colorAttribLocation);
+  gl.vertexAttribPointer(
+    colorAttribLocation,
+    3,
+    gl.FLOAT,
+    false,
+    0,
+    0
+  );
+
+  gl.drawArrays(gl.TRIANGLES, 0, positions.length / 3);
+}
+  
+  
+  
   const positions = new Float32Array(data);
 
   const buffer = gl.createBuffer();
@@ -143,15 +206,49 @@ function createAndDrawFromGeometry(gl, positionAttribLocation, vertices, faces) 
   gl.drawArrays(gl.TRIANGLES, 0, positions.length / 3);
 }
 
-// DrawCube: uses the Cube class from Part I
-function DrawCube(gl, positionAttribLocation) {
-  const cube = new Cube(gl);
-  cube.draw(positionAttribLocation);
+function DrawCube(gl, positionAttribLocation, colorAttribLocation) {
+  const vertices = [
+    [-0.5, -0.5, -0.5], // 0
+    [ 0.5, -0.5, -0.5], // 1
+    [ 0.5,  0.5, -0.5], // 2
+    [-0.5,  0.5, -0.5], // 3
+    [-0.5, -0.5,  0.5], // 4
+    [ 0.5, -0.5,  0.5], // 5
+    [ 0.5,  0.5,  0.5], // 6
+    [-0.5,  0.5,  0.5]  // 7
+  ];
+
+  const faces = [
+    [0, 1, 2], [0, 2, 3], // back
+    [4, 5, 6], [4, 6, 7], // front
+    [0, 4, 7], [0, 7, 3], // left
+    [1, 5, 6], [1, 6, 2], // right
+    [3, 2, 6], [3, 6, 7], // top
+    [0, 1, 5], [0, 5, 4]  // bottom
+  ];
+
+  const palette = [
+    [1.0, 0.0, 0.0], // red
+    [0.0, 1.0, 0.0], // green
+    [0.0, 0.0, 1.0], // blue
+    [1.0, 1.0, 0.0], // yellow
+    [1.0, 0.0, 1.0], // magenta
+    [0.0, 1.0, 1.0]  // cyan
+  ];
+
+  const faceColors = faces.map((_, i) => palette[i % palette.length]);
+
+  createAndDrawFromGeometryWithFaceColors(
+    gl,
+    positionAttribLocation,
+    colorAttribLocation,
+    vertices,
+    faces,
+    faceColors
+  );
 }
 
-// DrawTetrahedron: define a regular tetrahedron centered at the origin.
-// Vertices are chosen as four of the corners of a cube, scaled to ±0.5.
-function DrawTetrahedron(gl, positionAttribLocation) {
+function DrawTetrahedron(gl, positionAttribLocation, colorAttribLocation) {
   const vertices = [
     [ 0.5,  0.5,  0.5],  // 0
     [-0.5, -0.5,  0.5],  // 1
@@ -159,7 +256,6 @@ function DrawTetrahedron(gl, positionAttribLocation) {
     [ 0.5, -0.5, -0.5]   // 3
   ];
 
-  // Four triangular faces
   const faces = [
     [0, 1, 2],
     [0, 3, 1],
@@ -167,12 +263,28 @@ function DrawTetrahedron(gl, positionAttribLocation) {
     [1, 3, 2]
   ];
 
-  createAndDrawFromGeometry(gl, positionAttribLocation, vertices, faces);
+  const palette = [
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0],
+    [1.0, 1.0, 0.0],
+    [1.0, 0.0, 1.0],
+    [0.0, 1.0, 1.0]
+  ];
+  const faceColors = faces.map((_, i) => palette[i % palette.length]);
+
+  createAndDrawFromGeometryWithFaceColors(
+    gl,
+    positionAttribLocation,
+    colorAttribLocation,
+    vertices,
+    faces,
+    faceColors
+  );
 }
 
-// DrawOctahedron: a regular octahedron centered at the origin.
-function DrawOctahedron(gl, positionAttribLocation) {
-  // Six vertices on the axes, scaled to 0.5
+
+function DrawOctahedron(gl, positionAttribLocation, colorAttribLocation) {
   const vertices = [
     [ 0,  0.5,  0],  // 0 top
     [ 0, -0.5,  0],  // 1 bottom
@@ -182,7 +294,6 @@ function DrawOctahedron(gl, positionAttribLocation) {
     [ 0,  0, -0.5]   // 5 -Z
   ];
 
-  // Eight triangular faces
   const faces = [
     [0, 2, 4],
     [0, 4, 3],
@@ -194,14 +305,30 @@ function DrawOctahedron(gl, positionAttribLocation) {
     [1, 2, 5]
   ];
 
-  createAndDrawFromGeometry(gl, positionAttribLocation, vertices, faces);
+  const palette = [
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0],
+    [1.0, 1.0, 0.0],
+    [1.0, 0.0, 1.0],
+    [0.0, 1.0, 1.0]
+  ];
+  const faceColors = faces.map((_, i) => palette[i % palette.length]);
+
+  createAndDrawFromGeometryWithFaceColors(
+    gl,
+    positionAttribLocation,
+    colorAttribLocation,
+    vertices,
+    faces,
+    faceColors
+  );
 }
 
-// DrawIcosahedron: regular icosahedron using golden ratio coordinates.
-function DrawIcosahedron(gl, positionAttribLocation) {
+
+function DrawIcosahedron(gl, positionAttribLocation, colorAttribLocation) {
   const phi = (1 + Math.sqrt(5)) / 2;
 
-  // Standard 12-vertex icosahedron layout
   let vertices = [
     [-1,  phi,  0],
     [ 1,  phi,  0],
@@ -219,7 +346,6 @@ function DrawIcosahedron(gl, positionAttribLocation) {
     [-phi,  0,  1]
   ];
 
-  // Optionally normalize vertices to fit roughly in a unit sphere radius 0.5
   vertices = vertices.map(v => {
     const x = v[0], y = v[1], z = v[2];
     const len = Math.sqrt(x*x + y*y + z*z) || 1;
@@ -227,7 +353,6 @@ function DrawIcosahedron(gl, positionAttribLocation) {
     return [x * r, y * r, z * r];
   });
 
-  // 20 triangular faces (standard indexing for icosahedron)
   const faces = [
     [0, 11, 5],
     [0, 5, 1],
@@ -254,9 +379,25 @@ function DrawIcosahedron(gl, positionAttribLocation) {
     [9, 8, 1]
   ];
 
-  createAndDrawFromGeometry(gl, positionAttribLocation, vertices, faces);
-}
+  const palette = [
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0],
+    [1.0, 1.0, 0.0],
+    [1.0, 0.0, 1.0],
+    [0.0, 1.0, 1.0]
+  ];
+  const faceColors = faces.map((_, i) => palette[i % palette.length]);
 
+  createAndDrawFromGeometryWithFaceColors(
+    gl,
+    positionAttribLocation,
+    colorAttribLocation,
+    vertices,
+    faces,
+    faceColors
+  );
+}
 // DrawDodecahedron: regular dodecahedron built from a common coordinate set.
 // Uses 20 vertices and triangulated pentagonal faces.
 function DrawDodecahedron(gl, positionAttribLocation) {
@@ -323,24 +464,40 @@ function DrawDodecahedron(gl, positionAttribLocation) {
     faces.push([p[0], p[2], p[3]]);
     faces.push([p[0], p[3], p[4]]);
   }
+  const palette = [
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0],
+    [1.0, 1.0, 0.0],
+    [1.0, 0.0, 1.0],
+    [0.0, 1.0, 1.0]
+  ];
+  const faceColors = faces.map((_, i) => palette[i % palette.length]);
 
-  createAndDrawFromGeometry(gl, positionAttribLocation, vertices, faces);
+  createAndDrawFromGeometryWithFaceColors(
+    gl,
+    positionAttribLocation,
+    colorAttribLocation,
+    vertices,
+    faces,
+    faceColors
+  );
 }
 
-// DrawSphere: simple latitude-longitude sphere centered at origin.
-function DrawSphere(gl, positionAttribLocation) {
+
+function DrawSphere(gl, positionAttribLocation, colorAttribLocation) {
   const radius = 0.5;
   const latBands = 16;
   const lonBands = 16;
 
   const vertices = [];
   for (let lat = 0; lat <= latBands; lat++) {
-    const theta = lat * Math.PI / latBands; // 0..π
+    const theta = lat * Math.PI / latBands;
     const sinTheta = Math.sin(theta);
     const cosTheta = Math.cos(theta);
 
     for (let lon = 0; lon <= lonBands; lon++) {
-      const phiAng = lon * 2 * Math.PI / lonBands; // 0..2π
+      const phiAng = lon * 2 * Math.PI / lonBands;
       const sinPhi = Math.sin(phiAng);
       const cosPhi = Math.cos(phiAng);
 
@@ -366,22 +523,42 @@ function DrawSphere(gl, positionAttribLocation) {
     }
   }
 
-  createAndDrawFromGeometry(gl, positionAttribLocation, vertices, faces);
-}
+  const palette = [
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0],
+    [1.0, 1.0, 0.0],
+    [1.0, 0.0, 1.0],
+    [0.0, 1.0, 1.0]
+  ];
+  const faceColors = faces.map((_, i) => palette[i % palette.length]);
 
+  createAndDrawFromGeometryWithFaceColors(
+    gl,
+    positionAttribLocation,
+    colorAttribLocation,
+    vertices,
+    faces,
+    faceColors
+  );
+}
 // Minimal step to actually see something on the canvas 
 // Tiny shader pair 
 const VS_SOURCE = `
 attribute vec3 a_Position;
+attribute vec3 a_Color;
 uniform mat4 u_MVP;
+varying vec3 v_Color;
 void main() {
+  v_Color = a_Color;
   gl_Position = u_MVP * vec4(a_Position, 1.0);
 }
 `;
 const FS_SOURCE = `
 precision mediump float;
+varying vec3 v_Color;
 void main() {
-  gl_FragColor = vec4(0.9, 0.4, 0.2, 1.0);
+  gl_FragColor = vec4(v_Color, 1.0);
 }
 `;
 
@@ -528,7 +705,7 @@ function makeLookAt(eye, target, up) {
 function main() {
   const canvas = document.getElementById("glCanvas");
   if (!canvas) {
-    console.error("No canvas with id='glCanvas' found. - Assignment3.js:531");
+    console.error("No canvas with id='glCanvas' found. - Assignment3.js:708");
     return;
   }
 
@@ -551,7 +728,7 @@ function main() {
   gl.useProgram(program);
 
   const a_Position = gl.getAttribLocation(program, "a_Position");
-
+  const a_Color = gl.getAttribLocation(program, "a_Color");
   const u_MVP = gl.getUniformLocation(program, "u_MVP");
 
   // Build projection matrix
@@ -568,10 +745,10 @@ function main() {
 
   // Small helper inside main: set MVP and draw
   function drawWithModel(modelMatrix, drawFunc) {
-    const mvp = multiplyMat4(vp, modelMatrix);
-    gl.uniformMatrix4fv(u_MVP, false, mvp);
-    drawFunc(gl, a_Position);
-  }
+  const mvp = multiplyMat4(vp, modelMatrix);
+  gl.uniformMatrix4fv(u_MVP, false, mvp);
+  drawFunc(gl, a_Position, a_Color);
+}
 
   // --- Scene layout for Part III ---
 
