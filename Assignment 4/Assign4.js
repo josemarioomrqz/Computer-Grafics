@@ -102,8 +102,7 @@ function compileShader(gl, type, source) {
   return sh;
 }
 
-// Create the program 
-
+// Create the program from vertex and fragment shader sources
 function createProgram(gl, vsSource, fsSource) {
   const vs = compileShader(gl, gl.VERTEX_SHADER, vsSource);
   const fs = compileShader(gl, gl.FRAGMENT_SHADER, fsSource);
@@ -272,11 +271,269 @@ function buildCubeData() {
 }
 
 
+// Part 2: Additional Solids and Solid Builder
+const solids = {
+  cube: {
+    positions: [
+      -0.5, -0.5, -0.5,
+       0.5, -0.5, -0.5,
+       0.5,  0.5, -0.5,
+      -0.5,  0.5, -0.5,
+      -0.5, -0.5,  0.5,
+       0.5, -0.5,  0.5,
+       0.5,  0.5,  0.5,
+      -0.5,  0.5,  0.5
+    ],
+    indices: [
+      0, 1, 2, 0, 2, 3,
+      4, 5, 6, 4, 6, 7,
+      0, 4, 7, 0, 7, 3,
+      1, 5, 6, 1, 6, 2,
+      3, 2, 6, 3, 6, 7,
+      0, 1, 5, 0, 5, 4
+    ]
+  },
+  
+  // Tetrahedron
+  tetra: {
+    positions: [
+       0.5,  0.5,  0.5,
+      -0.5, -0.5,  0.5,
+      -0.5,  0.5, -0.5,
+       0.5, -0.5, -0.5
+    ],
+    indices: [
+      0, 1, 2,
+      0, 3, 1,
+      0, 2, 3,
+      1, 3, 2
+    ]
+  },
+
+  // Octahedron
+  octa: {
+    positions: [
+      0,  0.5,  0,
+      0, -0.5,  0,
+      0.5, 0,  0,
+     -0.5, 0,  0,
+      0,  0,  0.5,
+      0,  0, -0.5
+    ],
+    indices: [
+      0, 2, 4,
+      0, 4, 3,
+      0, 3, 5,
+      0, 5, 2,
+      1, 4, 2,
+      1, 3, 4,
+      1, 5, 3,
+      1, 2, 5
+    ]
+  },
+  
+  // Icosahedron
+  icosa: {
+    positions: (function () {
+      const phi = (1 + Math.sqrt(5)) / 2;
+      let v = [
+        -1,  phi,  0,
+         1,  phi,  0,
+        -1, -phi,  0,
+         1, -phi,  0,
+         0, -1,  phi,
+         0,  1,  phi,
+         0, -1, -phi,
+         0,  1, -phi,
+         phi,  0, -1,
+         phi,  0,  1,
+        -phi,  0, -1,
+        -phi,  0,  1
+      ];
+      for (let i = 0; i < v.length; i += 3) {
+        const x = v[i], y = v[i + 1], z = v[i + 2];
+        const len = Math.sqrt(x * x + y * y + z * z) || 1;
+        const r = 0.5 / len;
+        v[i] = x * r;
+        v[i + 1] = y * r;
+        v[i + 2] = z * r;
+      }
+      return v;
+    })(),
+
+    
+    indices: [
+      0, 11, 5,
+      0, 5, 1,
+      0, 1, 7,
+      0, 7, 10,
+      0, 10, 11,
+      1, 5, 9,
+      5, 11, 4,
+      11, 10, 2,
+      10, 7, 6,
+      7, 1, 8,
+      3, 9, 4,
+      3, 4, 2,
+      3, 2, 6,
+      3, 6, 8,
+      3, 8, 9,
+      4, 9, 5,
+      2, 4, 11,
+      6, 2, 10,
+      8, 6, 7,
+      9, 8, 1
+    ]
+  },
+
+  // Dodecahedron
+  dodeca: {
+    positions: (function () {
+      const phi = (1 + Math.sqrt(5)) / 2;
+      const invPhi = 1 / phi;
+      let v = [
+        -1, -1, -1,
+        -1, -1,  1,
+        -1,  1, -1,
+        -1,  1,  1,
+         1, -1, -1,
+         1, -1,  1,
+         1,  1, -1,
+         1,  1,  1,
+         0, -invPhi, -phi,
+         0, -invPhi,  phi,
+         0,  invPhi, -phi,
+         0,  invPhi,  phi,
+        -invPhi, -phi,  0,
+         invPhi, -phi,  0,
+        -invPhi,  phi,  0,
+         invPhi,  phi,  0,
+        -phi,  0, -invPhi,
+         phi,  0, -invPhi,
+        -phi,  0,  invPhi,
+         phi,  0,  invPhi
+      ];
+      for (let i = 0; i < v.length; i += 3) {
+        const x = v[i], y = v[i + 1], z = v[i + 2];
+        const len = Math.sqrt(x * x + y * y + z * z) || 1;
+        const r = 0.5 / len;
+        v[i] = x * r;
+        v[i + 1] = y * r;
+        v[i + 2] = z * r;
+      }
+      return v;
+    })(),
+    indices: (function () {
+      const pentagons = [
+        [0,  8, 10, 16, 12],
+        [0, 12, 13, 4,  8],
+        [0, 16, 18, 2, 10],
+        [7, 11, 9, 5, 19],
+        [7, 19, 17, 6, 15],
+        [7, 15, 14, 3, 11],
+        [1, 9, 11, 3, 18],
+        [1, 18, 16, 10, 8],
+        [1, 8, 4, 13, 9],
+        [2, 14, 15, 6, 17],
+        [2, 17, 19, 5, 12],
+        [2, 12, 16, 18, 14]
+      ];
+      const out = [];
+      for (let k = 0; k < pentagons.length; k++) {
+        const p = pentagons[k];
+        out.push(p[0], p[1], p[2]);
+        out.push(p[0], p[2], p[3]);
+        out.push(p[0], p[3], p[4]);
+      }
+      return out;
+    })()
+  }
+};
+
+// Sphere Geometry Generator
+
+function buildSphereSolid() {
+  const radius = 0.5;
+  const latBands = 16;
+  const lonBands = 16;
+  const vertices = [];
+  for (let lat = 0; lat <= latBands; lat++) {
+    const theta = lat * Math.PI / latBands;
+    const sinTheta = Math.sin(theta);
+    const cosTheta = Math.cos(theta);
+    for (let lon = 0; lon <= lonBands; lon++) {
+      const phiAng = lon * 2 * Math.PI / lonBands;
+      const sinPhi = Math.sin(phiAng);
+      const cosPhi = Math.cos(phiAng);
+      const x = radius * sinTheta * cosPhi;
+      const y = radius * cosTheta;
+      const z = radius * sinTheta * sinPhi;
+      vertices.push(x, y, z);
+    }
+  }
+  const faces = [];
+  const cols = lonBands + 1;
+  for (let lat = 0; lat < latBands; lat++) {
+    for (let lon = 0; lon < lonBands; lon++) {
+      const first = lat * cols + lon;
+      const second = first + 1;
+      const third = (lat + 1) * cols + lon;
+      const fourth = third + 1;
+      faces.push(first, third, second);
+      faces.push(second, third, fourth);
+    }
+  }
+  return { positions: vertices, indices: faces };
+}
+
+// Build solid data with computed normals
+function buildSolidData(name) {
+  let positions;
+  let indices;
+  if (name === "sphere") {
+    const s = buildSphereSolid();
+    positions = s.positions;
+    indices = s.indices;
+  } else {
+    const s = solids[name];
+    positions = s.positions;
+    indices = s.indices;
+  }
+  const outPos = [];
+  const outNorm = [];
+  for (let i = 0; i < indices.length; i += 3) {
+    const i0 = indices[i] * 3;
+    const i1 = indices[i + 1] * 3;
+    const i2 = indices[i + 2] * 3;
+    const v0x = positions[i0],     v0y = positions[i0 + 1],     v0z = positions[i0 + 2];
+    const v1x = positions[i1],     v1y = positions[i1 + 1],     v1z = positions[i1 + 2];
+    const v2x = positions[i2],     v2y = positions[i2 + 1],     v2z = positions[i2 + 2];
+    const e1x = v1x - v0x, e1y = v1y - v0y, e1z = v1z - v0z;
+    const e2x = v2x - v0x, e2y = v2y - v0y, e2z = v2z - v0z;
+    const nx = e1y * e2z - e1z * e2y;
+    const ny = e1z * e2x - e1x * e2z;
+    const nz = e1x * e2y - e1y * e2x;
+    const len = Math.hypot(nx, ny, nz) || 1;
+    const nnx = nx / len, nny = ny / len, nnz = nz / len;
+    outPos.push(v0x, v0y, v0z);
+    outPos.push(v1x, v1y, v1z);
+    outPos.push(v2x, v2y, v2z);
+    outNorm.push(nnx, nny, nnz);
+    outNorm.push(nnx, nny, nnz);
+    outNorm.push(nnx, nny, nnz);
+  }
+  return {
+    positions: new Float32Array(outPos),
+    normals: new Float32Array(outNorm)
+  };
+}
+
+
 // Main entry point for the application
 function main() {
   const canvas = document.getElementById("glCanvas");
   if (!canvas) {
-    console.error("No canvas with id='glCanvas' found. - Assign4.js:279");
+    console.error("No canvas with id='glCanvas' found. - Assign4.js:536");
     return;
   }
 
@@ -319,28 +576,30 @@ function main() {
   const u_MatSpecular   = gl.getUniformLocation(program, "u_MaterialSpecular");
   const u_Shininess     = gl.getUniformLocation(program, "u_Shininess");
 
-  // ---- Build cube geometry ----
-  const cube = buildCubeData();
+// Building Geometry for solids
+  const currentSolid = "sphere"; // Channging string to each solid name "cube", "tetra", "octa", "icosa", "dodeca", "sphere"
+  const solid = buildSolidData(currentSolid);
 
   // Position buffer
   const posBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, cube.positions, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, solid.positions, gl.STATIC_DRAW);
   gl.enableVertexAttribArray(a_Position);
   gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);
 
   // Normal buffer
   const normBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, normBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, cube.normals, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, solid.normals, gl.STATIC_DRAW);
   gl.enableVertexAttribArray(a_Normal);
   gl.vertexAttribPointer(a_Normal, 3, gl.FLOAT, false, 0, 0);
 
-  // ---- Matrices ----
+
+// Matrices Set up
   const aspect = canvas.width / canvas.height;
   const proj   = makePerspective(degToRad(45), aspect, 0.1, 50.0);
 
-  const eye    = [4, 3, 6];   // same feel as Assignment3
+  const eye    = [4, 3, 6];  
   const target = [0, 0, 0];
   const up     = [0, 1, 0];
   const view   = makeLookAt(eye, target, up);
@@ -350,7 +609,7 @@ function main() {
   const T = makeTranslation(0, 0, 0);
   const model = multiplyMat4(T, R);
 
-  // For now (only rotation+translation), we can reuse model as normal matrix
+ // For a cube, the normal matrix is the same as the model matrix
   const normalMatrix = model;
 
   gl.uniformMatrix4fv(u_Model,        false, model);
@@ -358,7 +617,7 @@ function main() {
   gl.uniformMatrix4fv(u_Proj,         false, proj);
   gl.uniformMatrix4fv(u_NormalMatrix, false, normalMatrix);
 
-  // ---- Lighting setup ----
+  // Lighting set up
   // White light slightly above-right of the cube
   gl.uniform3f(u_LightPos,   4.0, 4.0, 4.0);
   gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
@@ -367,14 +626,14 @@ function main() {
   // Camera position for specular
   gl.uniform3f(u_ViewPos, eye[0], eye[1], eye[2]);
 
-  // ---- Gold material (classic OpenGL values) ----
+  // Matrial Gold Set up 
   gl.uniform3f(u_MatAmbient,  0.24725, 0.1995, 0.0745);
   gl.uniform3f(u_MatDiffuse,  0.75164, 0.60648, 0.22648);
   gl.uniform3f(u_MatSpecular, 0.628281, 0.555802, 0.366065);
   gl.uniform1f(u_Shininess,   51.2);
 
-  // ---- Draw ----
-  gl.drawArrays(gl.TRIANGLES, 0, cube.positions.length / 3);
+  // Draw the cube and other solids
+  gl.drawArrays(gl.TRIANGLES, 0, solid.positions.length / 3);
 }
 
 // Run when the page loads
