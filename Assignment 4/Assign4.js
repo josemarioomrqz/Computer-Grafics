@@ -56,6 +56,7 @@ const PHONG_FS = `
     uniform vec3 u_MaterialDiffuse;
     uniform vec3 u_MaterialSpecular;
     uniform float u_Shininess;
+    uniform int u_LightingMode;
 
     // Main function 
 
@@ -84,7 +85,14 @@ const PHONG_FS = `
         vec3 specular = u_LightColor * u_MaterialSpecular * spec;
 
         // Final color
-        vec3 color = ambient + diffuse + specular;
+        vec3 color;
+        if (u_LightingMode == 0) {
+            color = ambient + diffuse;
+        } else if (u_LightingMode == 1) {
+            color = ambient + diffuse + specular;
+        } else {
+            color = ambient + 0.5 * (diffuse + specular);
+        }
         gl_FragColor = vec4(color, 1.0);
 }
 `;
@@ -148,6 +156,7 @@ function multiplyMat4(a, b) {
   return out;
 }
 
+// Translation matrix
 function makeTranslation(tx, ty, tz) {
   const m = makeIdentity();
   m[12] = tx;
@@ -156,6 +165,7 @@ function makeTranslation(tx, ty, tz) {
   return m;
 }
 
+// Rotation around Y axis
 function makeRotationY(angleRad) {
   const c = Math.cos(angleRad);
   const s = Math.sin(angleRad);
@@ -167,6 +177,7 @@ function makeRotationY(angleRad) {
   ]);
 }
 
+// Perspective Projection matrix
 function makePerspective(fovRad, aspect, near, far) {
   const f = 1.0 / Math.tan(fovRad / 2);
   const rangeInv = 1.0 / (near - far);
@@ -178,6 +189,7 @@ function makePerspective(fovRad, aspect, near, far) {
   ]);
 }
 
+// LookAt view matrix
 function makeLookAt(eye, target, up) {
   const ex = eye[0], ey = eye[1], ez = eye[2];
   const tx = target[0], ty = target[1], tz = target[2];
@@ -533,7 +545,7 @@ function buildSolidData(name) {
 function main() {
   const canvas = document.getElementById("glCanvas");
   if (!canvas) {
-    console.error("No canvas with id='glCanvas' found. - Assign4.js:536");
+    console.error("No canvas with id='glCanvas' found. - Assign4.js:548");
     return;
   }
 
@@ -575,24 +587,25 @@ function main() {
   const u_MatDiffuse    = gl.getUniformLocation(program, "u_MaterialDiffuse");
   const u_MatSpecular   = gl.getUniformLocation(program, "u_MaterialSpecular");
   const u_Shininess     = gl.getUniformLocation(program, "u_Shininess");
+  const u_LightingMode  = gl.getUniformLocation(program, "u_LightingMode");
 
 // Building Geometry for solids
-  const currentSolid = "sphere"; // Channging string to each solid name "cube", "tetra", "octa", "icosa", "dodeca", "sphere"
-  const solid = buildSolidData(currentSolid);
-
-  // Position buffer
+  let currentSolid = "cube"; // Channging string to each solid name "cube", "tetra", "octa", "icosa", "dodeca", "sphere"
+  let solid = buildSolidData(currentSolid);
   const posBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, solid.positions, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(a_Position);
-  gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);
-
-  // Normal buffer
   const normBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, normBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, solid.normals, gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(a_Normal);
-  gl.vertexAttribPointer(a_Normal, 3, gl.FLOAT, false, 0, 0);
+  function updateGeometry() {
+    solid = buildSolidData(currentSolid);
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, solid.positions, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_Position);
+    gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, normBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, solid.normals, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_Normal);
+    gl.vertexAttribPointer(a_Normal, 3, gl.FLOAT, false, 0, 0);
+  }
+  updateGeometry();
 
 
 // Matrices Set up
@@ -602,38 +615,87 @@ function main() {
   const eye    = [4, 3, 6];  
   const target = [0, 0, 0];
   const up     = [0, 1, 0];
-  const view   = makeLookAt(eye, target, up);
 
-  // Just a slight rotation so we see 3 faces of the cube
-  const R = makeRotationY(degToRad(30));
-  const T = makeTranslation(0, 0, 0);
-  const model = multiplyMat4(T, R);
+  let rotationAngle = 0;
+  let lightAngle = 0;
+  let lightingMode = 0;
+  let currentMaterial = 0;
+  const materials = [
+    { ambient: [0.24725, 0.1995, 0.0745], diffuse: [0.75164, 0.60648, 0.22648], specular: [0.628281, 0.555802, 0.366065], shininess: 51.2 },
+    { ambient: [0.135, 0.2225, 0.1575], diffuse: [0.54, 0.89, 0.63], specular: [0.316228, 0.316228, 0.316228], shininess: 12.8 }
+  ];
 
- // For a cube, the normal matrix is the same as the model matrix
-  const normalMatrix = model;
+  function applyMaterial() {
+    const m = materials[currentMaterial];
+    gl.uniform3f(u_MatAmbient,  m.ambient[0],  m.ambient[1],  m.ambient[2]);
+    gl.uniform3f(u_MatDiffuse,  m.diffuse[0],  m.diffuse[1],  m.diffuse[2]);
+    gl.uniform3f(u_MatSpecular, m.specular[0], m.specular[1], m.specular[2]);
+    gl.uniform1f(u_Shininess,   m.shininess);
+  }
+  applyMaterial();
 
-  gl.uniformMatrix4fv(u_Model,        false, model);
-  gl.uniformMatrix4fv(u_View,         false, view);
-  gl.uniformMatrix4fv(u_Proj,         false, proj);
-  gl.uniformMatrix4fv(u_NormalMatrix, false, normalMatrix);
+  // Experimenting and  Having fun with key board controls: 1-6 to change solids, M to change material, and L to change lighting mode
+  window.addEventListener("keydown", function(e) {
+    if (e.key === "1") currentSolid = "cube";
+    else if (e.key === "2") currentSolid = "tetra";
+    else if (e.key === "3") currentSolid = "octa";
+    else if (e.key === "4") currentSolid = "icosa";
+    else if (e.key === "5") currentSolid = "dodeca";
+    else if (e.key === "6") currentSolid = "sphere";
+    if (e.key === "1" || e.key === "2" || e.key === "3" || e.key === "4" || e.key === "5" || e.key === "6") updateGeometry();
+    if (e.key === "m" || e.key === "M") {
+      currentMaterial = (currentMaterial + 1) % materials.length;
+      applyMaterial();
+    }
+    if (e.key === "l" || e.key === "L") {
+      lightingMode = (lightingMode + 1) % 3;
+    }
+  });
 
-  // Lighting set up
-  // White light slightly above-right of the cube
-  gl.uniform3f(u_LightPos,   4.0, 4.0, 4.0);
-  gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
-  gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2);
+  function render() {
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  // Camera position for specular
-  gl.uniform3f(u_ViewPos, eye[0], eye[1], eye[2]);
+    rotationAngle += 0.01;
+    lightAngle += 0.02;
 
-  // Matrial Gold Set up 
-  gl.uniform3f(u_MatAmbient,  0.24725, 0.1995, 0.0745);
-  gl.uniform3f(u_MatDiffuse,  0.75164, 0.60648, 0.22648);
-  gl.uniform3f(u_MatSpecular, 0.628281, 0.555802, 0.366065);
-  gl.uniform1f(u_Shininess,   51.2);
+    const view   = makeLookAt(eye, target, up);
 
-  // Draw the cube and other solids
-  gl.drawArrays(gl.TRIANGLES, 0, solid.positions.length / 3);
+    // Just a slight rotation so we see 3 faces of the cube
+    const R = makeRotationY(rotationAngle);
+    const T = makeTranslation(0, 0, 0);
+    const model = multiplyMat4(T, R);
+
+   // For a cube, the normal matrix is the same as the model matrix
+    const normalMatrix = model;
+
+    gl.uniformMatrix4fv(u_Model,        false, model);
+    gl.uniformMatrix4fv(u_View,         false, view);
+    gl.uniformMatrix4fv(u_Proj,         false, proj);
+    gl.uniformMatrix4fv(u_NormalMatrix, false, normalMatrix);
+
+    // Lighting set up
+    // White light slightly above-right of the cube
+    const lightRadius = 4.0;
+    const lx = lightRadius * Math.cos(lightAngle);
+    const lz = lightRadius * Math.sin(lightAngle);
+    const ly = 4.0;
+    gl.uniform3f(u_LightPos,   lx, ly, lz);
+    gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
+    gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2);
+
+    // Camera position for specular
+    gl.uniform3f(u_ViewPos, eye[0], eye[1], eye[2]);
+
+    // Matrial Gold Set up 
+    gl.uniform1i(u_LightingMode, lightingMode);
+
+    // Draw the cube and other solids
+    gl.drawArrays(gl.TRIANGLES, 0, solid.positions.length / 3);
+
+    requestAnimationFrame(render);
+  }
+
+  render();
 }
 
 // Run when the page loads
