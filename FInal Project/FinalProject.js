@@ -1,3 +1,4 @@
+"use strict";
 // Jose Marquez
 // Final Project - MSU Texas Tennis Center 
 // Description: This project implements a vivid 3D model of the MSU Texas Tennis Center using WebGL.
@@ -99,6 +100,79 @@ function mat4LookAt(eye, target, up){
   m[13]=-(y[0]*eye[0]+y[1]*eye[1]+y[2]*eye[2]);
   m[14]=-(z[0]*eye[0]+z[1]*eye[1]+z[2]*eye[2]);
   return m;
+}
+
+// Matrix helpers for Part B (lighting)
+function mat4Transpose(m){
+  return [
+    m[0], m[4], m[8],  m[12],
+    m[1], m[5], m[9],  m[13],
+    m[2], m[6], m[10], m[14],
+    m[3], m[7], m[11], m[15]
+  ];
+}
+
+function mat4Invert(m){
+  const inv = new Array(16);
+
+  inv[0]  =  m[5]  * m[10] * m[15] - m[5]  * m[11] * m[14] - m[9]  * m[6]  * m[15] + m[9]  * m[7]  * m[14] + m[13] * m[6]  * m[11] - m[13] * m[7]  * m[10];
+  inv[4]  = -m[4]  * m[10] * m[15] + m[4]  * m[11] * m[14] + m[8]  * m[6]  * m[15] - m[8]  * m[7]  * m[14] - m[12] * m[6]  * m[11] + m[12] * m[7]  * m[10];
+  inv[8]  =  m[4]  * m[9]  * m[15] - m[4]  * m[11] * m[13] - m[8]  * m[5]  * m[15] + m[8]  * m[7]  * m[13] + m[12] * m[5]  * m[11] - m[12] * m[7]  * m[9];
+  inv[12] = -m[4]  * m[9]  * m[14] + m[4]  * m[10] * m[13] + m[8]  * m[5]  * m[14] - m[8]  * m[6]  * m[13] - m[12] * m[5]  * m[10] + m[12] * m[6]  * m[9];
+
+  inv[1]  = -m[1]  * m[10] * m[15] + m[1]  * m[11] * m[14] + m[9]  * m[2]  * m[15] - m[9]  * m[3]  * m[14] - m[13] * m[2]  * m[11] + m[13] * m[3]  * m[10];
+  inv[5]  =  m[0]  * m[10] * m[15] - m[0]  * m[11] * m[14] - m[8]  * m[2]  * m[15] + m[8]  * m[3]  * m[14] + m[12] * m[2]  * m[11] - m[12] * m[3]  * m[10];
+  inv[9]  = -m[0]  * m[9]  * m[15] + m[0]  * m[11] * m[13] + m[8]  * m[1]  * m[15] - m[8]  * m[3]  * m[13] - m[12] * m[1]  * m[11] + m[12] * m[3]  * m[9];
+  inv[13] =  m[0]  * m[9]  * m[14] - m[0]  * m[10] * m[13] - m[8]  * m[1]  * m[14] + m[8]  * m[2]  * m[13] + m[12] * m[1]  * m[10] - m[12] * m[2]  * m[9];
+
+  inv[2]  =  m[1]  * m[6]  * m[15] - m[1]  * m[7]  * m[14] - m[5]  * m[2]  * m[15] + m[5]  * m[3]  * m[14] + m[13] * m[2]  * m[7]  - m[13] * m[3]  * m[6];
+  inv[6]  = -m[0]  * m[6]  * m[15] + m[0]  * m[7]  * m[14] + m[4]  * m[2]  * m[15] - m[4]  * m[3]  * m[14] - m[12] * m[2]  * m[7]  + m[12] * m[3]  * m[6];
+  inv[10] =  m[0]  * m[5]  * m[15] - m[0]  * m[7]  * m[13] - m[4]  * m[1]  * m[15] + m[4]  * m[3]  * m[13] + m[12] * m[1]  * m[7]  - m[12] * m[3]  * m[5];
+  inv[14] = -m[0]  * m[5]  * m[14] + m[0]  * m[6]  * m[13] + m[4]  * m[1]  * m[14] - m[4]  * m[2]  * m[13] - m[12] * m[1]  * m[6]  + m[12] * m[2]  * m[5];
+
+  inv[3]  = -m[1] * m[6] * m[11] + m[1] * m[7] * m[10] + m[5] * m[2] * m[11] - m[5] * m[3] * m[10] - m[9] * m[2] * m[7]  + m[9] * m[3] * m[6];
+  inv[7]  =  m[0] * m[6] * m[11] - m[0] * m[7] * m[10] - m[4] * m[2] * m[11] + m[4] * m[3] * m[10] + m[8] * m[2] * m[7]  - m[8] * m[3] * m[6];
+  inv[11] = -m[0] * m[5] * m[11] + m[0] * m[7] * m[9]  + m[4] * m[1] * m[11] - m[4] * m[3] * m[9]  - m[8] * m[1] * m[7]  + m[8] * m[3] * m[5];
+  inv[15] =  m[0] * m[5] * m[10] - m[0] * m[6] * m[9]  - m[4] * m[1] * m[10] + m[4] * m[2] * m[9]  + m[8] * m[1] * m[6]  - m[8] * m[2] * m[5];
+
+  let det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
+  if(det === 0) return mat4Identity();
+  det = 1.0 / det;
+  for(let i=0;i<16;i++) inv[i] *= det;
+  return inv;
+}
+
+function mat3FromMat4(m){
+  return [
+    m[0], m[1], m[2],
+    m[4], m[5], m[6],
+    m[8], m[9], m[10]
+  ];
+}
+
+function computeNormalMatrix(view, model){
+  const mv = mat4Mul(view, model);
+  const invMV = mat4Invert(mv);
+  const it = mat4Transpose(invMV);
+  return mat3FromMat4(it);
+}
+
+function transformPoint(m, v){
+  const x = v[0], y = v[1], z = v[2];
+  return [
+    m[0]*x + m[4]*y + m[8]*z + m[12],
+    m[1]*x + m[5]*y + m[9]*z + m[13],
+    m[2]*x + m[6]*y + m[10]*z + m[14]
+  ];
+}
+
+function transformDirection(m, v){
+  const x = v[0], y = v[1], z = v[2];
+  return [
+    m[0]*x + m[4]*y + m[8]*z,
+    m[1]*x + m[5]*y + m[9]*z,
+    m[2]*x + m[6]*y + m[10]*z
+  ];
 }
 
 
@@ -295,27 +369,68 @@ layout(location=1) in vec3 aNormal;
 uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProj;
+uniform mat3 uNormalMatrix;
 
-out vec3 vNormalWorld;
+out vec3 vPosView;
+out vec3 vNormalView;
 
 void main(){
-  // For Part A we won't light yet, but we pass a normal for later.
-  // Approx world normal (ok for now since we use uniform scale in this part).
-  vNormalWorld = aNormal;
-  gl_Position = uProj * uView * uModel * vec4(aPosition, 1.0);
+  vec4 posView = uView * uModel * vec4(aPosition, 1.0);
+  vPosView = posView.xyz;
+  vNormalView = normalize(uNormalMatrix * aNormal);
+  gl_Position = uProj * posView;
 }
 `;
 
 const FS = `#version 300 es
 precision highp float;
 
-uniform vec3 uColor;
+in vec3 vPosView;
+in vec3 vNormalView;
+
+uniform vec3 uDiffuse;
+uniform vec3 uSpecular;
+uniform float uShininess;
+
+uniform vec3 uAmbientColor;
+
+uniform vec3 uDirLightDirView;
+uniform vec3 uDirLightColor;
+
+uniform vec3 uPointLightPosView;
+uniform vec3 uPointLightColor;
+uniform int  uPointLightEnabled;
 
 out vec4 outColor;
 
 void main(){
-  // Unlit color for Part A modeling focus.
-  outColor = vec4(uColor, 1.0);
+  vec3 N = normalize(vNormalView);
+  vec3 V = normalize(-vPosView);
+
+  vec3 ambient = uAmbientColor * uDiffuse;
+
+  vec3 Ld = normalize(-uDirLightDirView);
+  float diffD = max(dot(N, Ld), 0.0);
+  vec3 R = reflect(-Ld, N);
+  float specD = pow(max(dot(V, R), 0.0), uShininess);
+  vec3 dirTerm = (diffD * uDiffuse + specD * uSpecular) * uDirLightColor;
+
+  vec3 pointTerm = vec3(0.0);
+  if(uPointLightEnabled == 1){
+    vec3 LpVec = uPointLightPosView - vPosView;
+    float dist = length(LpVec);
+    vec3 Lp = normalize(LpVec);
+
+    float diffP = max(dot(N, Lp), 0.0);
+    vec3 Rp = reflect(-Lp, N);
+    float specP = pow(max(dot(V, Rp), 0.0), uShininess);
+
+    float att = 1.0 / (1.0 + 0.08 * dist + 0.02 * dist * dist);
+    pointTerm = (diffP * uDiffuse + specP * uSpecular) * uPointLightColor * att;
+  }
+
+  vec3 color = ambient + dirTerm + pointTerm;
+  outColor = vec4(color, 1.0);
 }
 `;
 
@@ -324,8 +439,8 @@ const Scene = {
   objects: []
 };
 
-function addObject(mesh, model, color){
-  Scene.objects.push({ mesh, model, color });
+function addObject(mesh, model, color, specular = [0.20, 0.20, 0.20], shininess = 16.0){
+  Scene.objects.push({ mesh, model, color, specular, shininess });
 }
 
 // Build the tennis center scene
@@ -365,7 +480,7 @@ function buildScene(gl, meshes){
       mat4Translate(12, 1.6, 6),
       mat4Scale(10, 3.2, 6)
     );
-    addObject(meshes.box, model, [0.55, 0.32, 0.20]); // brick-ish
+    addObject(meshes.box, model, [0.55, 0.32, 0.20], [0.08, 0.08, 0.08], 8.0); // matte brick
   }
 
   // Roof block
@@ -374,7 +489,7 @@ function buildScene(gl, meshes){
       mat4Translate(12, 3.5, 6),
       mat4Scale(10.6, 0.6, 6.6)
     );
-    addObject(meshes.box, model, [0.20, 0.15, 0.12]);
+    addObject(meshes.box, model, [0.20, 0.15, 0.12], [0.10, 0.10, 0.10], 12.0);
   }
 
   // Front awning lip
@@ -423,7 +538,7 @@ function buildScene(gl, meshes){
       mat4Translate(x, 1.2, fenceZ),
       mat4Scale(0.08, 2.4, 0.08)
     );
-    addObject(meshes.box, model, [0.25, 0.27, 0.30]);
+    addObject(meshes.box, model, [0.25, 0.27, 0.30], [0.50, 0.50, 0.50], 64.0);
   }
 
   // Top rail
@@ -433,7 +548,7 @@ function buildScene(gl, meshes){
       mat4Translate((fenceStartX+fenceEndX)/2, 2.2, fenceZ),
       mat4Scale(len, 0.06, 0.06)
     );
-    addObject(meshes.box, model, [0.22, 0.24, 0.27]);
+    addObject(meshes.box, model, [0.22, 0.24, 0.27], [0.45, 0.45, 0.45], 48.0);
   }
 
   // Mid rail
@@ -443,7 +558,7 @@ function buildScene(gl, meshes){
       mat4Translate((fenceStartX+fenceEndX)/2, 1.2, fenceZ),
       mat4Scale(len, 0.06, 0.06)
     );
-    addObject(meshes.box, model, [0.22, 0.24, 0.27]);
+    addObject(meshes.box, model, [0.22, 0.24, 0.27], [0.45, 0.45, 0.45], 48.0);
   }
 
   // Fence "panel" 
@@ -514,7 +629,7 @@ function buildScene(gl, meshes){
       mat4Translate(x, 2.5, z),
       mat4Scale(0.25, 5.0, 0.25)
     );
-    addObject(meshes.cyl, model, [0.20, 0.20, 0.22]);
+    addObject(meshes.cyl, model, [0.20, 0.20, 0.22], [0.55, 0.55, 0.55], 80.0);
 
     const head = mat4Mul(
       mat4Translate(x, 5.3, z),
@@ -544,124 +659,182 @@ function resetCamera(){
 
 
 // Main
-  
-const canvas = document.getElementById("glcanvas");
-const gl = canvas.getContext("webgl2", { antialias: true });
-if(!gl){
-  alert("WebGL2 not supported in this browser.");
-  throw new Error("WebGL2 not supported");
-}
+// Wrap initialization to ensure the canvas exists before we access it.
+function initFinalProject(){
 
-// Resize handling
-function resize(){
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const w = Math.floor(canvas.clientWidth * dpr);
-  const h = Math.floor(canvas.clientHeight * dpr);
-  if(canvas.width !== w || canvas.height !== h){
-    canvas.width = w; canvas.height = h;
+  // Try to find the expected canvas, otherwise fall back to the first canvas on the page.
+  const canvas = document.getElementById("glcanvas") || document.querySelector("canvas");
+  if(!canvas){
+    console.error("FinalProject: No canvas found. Add <canvas id=\"glcanvas\"></canvas> to your HTML, or ensure this script runs after the canvas is created. - FinalProject.js:668");
+    return;
   }
-  gl.viewport(0,0,canvas.width,canvas.height);
-}
-window.addEventListener("resize", resize);
 
-// Create program
-const program = createProgram(gl, VS, FS);
-gl.useProgram(program);
-
-// Uniform locations
-const uModel = gl.getUniformLocation(program, "uModel");
-const uView  = gl.getUniformLocation(program, "uView");
-const uProj  = gl.getUniformLocation(program, "uProj");
-const uColor = gl.getUniformLocation(program, "uColor");
-
-// Create meshes
-const meshes = {
-  box: createMesh(gl, createBox()),
-  plane: createMesh(gl, createPlane()),
-  cyl: createMesh(gl, createCylinder(18))
-};
-
-// Build scene geometry instances
-buildScene(gl, meshes);
-
-// GL state
-gl.enable(gl.DEPTH_TEST);
-gl.enable(gl.CULL_FACE);
-gl.cullFace(gl.BACK);
-
-// Mouse controls
-canvas.addEventListener("mousedown", (e)=>{
-  Camera.dragging = true;
-  Camera.lastX = e.clientX;
-  Camera.lastY = e.clientY;
-});
-window.addEventListener("mouseup", ()=>{
-  Camera.dragging = false;
-});
-window.addEventListener("mousemove", (e)=>{
-  if(!Camera.dragging) return;
-  const dx = e.clientX - Camera.lastX;
-  const dy = e.clientY - Camera.lastY;
-  Camera.lastX = e.clientX;
-  Camera.lastY = e.clientY;
-
-  Camera.yaw   += dx * 0.005;
-  Camera.pitch += dy * 0.005;
-  Camera.pitch = Math.max(-1.2, Math.min(0.2, Camera.pitch));
-});
-
-// Zoom
-canvas.addEventListener("wheel", (e)=>{
-  e.preventDefault();
-  Camera.distance *= (e.deltaY > 0) ? 1.08 : 0.92;
-  Camera.distance = Math.max(8, Math.min(80, Camera.distance));
-}, { passive: false });
-
-// Keyboard
-window.addEventListener("keydown", (e)=>{
-  if(e.key.toLowerCase() === "r"){
-    resetCamera();
+  const gl = canvas.getContext("webgl2", { antialias: true });
+  if(!gl){
+    alert("WebGL2 not supported in this browser.");
+    throw new Error("WebGL2 not supported");
   }
-});
 
+  // Resize handling
+  function resize(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // If the canvas has no CSS size, give it a sensible default based on the window.
+    const clientW = canvas.clientWidth || window.innerWidth;
+    const clientH = canvas.clientHeight || window.innerHeight;
 
-// Compute camera view matrix
-function getViewMatrix(){
-  const cy = Math.cos(Camera.yaw), sy = Math.sin(Camera.yaw);
-  const cp = Math.cos(Camera.pitch), sp = Math.sin(Camera.pitch);
+    const w = Math.floor(clientW * dpr);
+    const h = Math.floor(clientH * dpr);
+    if(canvas.width !== w || canvas.height !== h){
+      canvas.width = w; canvas.height = h;
+    }
+    gl.viewport(0,0,canvas.width,canvas.height);
+  }
+  window.addEventListener("resize", resize);
 
-  const x = Camera.target[0] + Camera.distance * cp * sy;
-  const y = Camera.target[1] + Camera.distance * sp;
-  const z = Camera.target[2] + Camera.distance * cp * cy;
-
-  const eye = [x,y,z];
-  return mat4LookAt(eye, Camera.target, [0,1,0]);
-}
-
-// Render loop
-function render(){
-  resize();
-
-  gl.clearColor(0.06, 0.06, 0.08, 1);
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-  const aspect = canvas.width / Math.max(1, canvas.height);
-  const proj = mat4Perspective(60 * Math.PI/180, aspect, 0.1, 200);
-  const view = getViewMatrix();
-
+  // Create program
+  const program = createProgram(gl, VS, FS);
   gl.useProgram(program);
-  gl.uniformMatrix4fv(uView, false, new Float32Array(view));
-  gl.uniformMatrix4fv(uProj, false, new Float32Array(proj));
 
-  for(const obj of Scene.objects){
-    gl.bindVertexArray(obj.mesh.vao);
-    gl.uniformMatrix4fv(uModel, false, new Float32Array(obj.model));
-    gl.uniform3fv(uColor, new Float32Array(obj.color));
-    gl.drawElements(gl.TRIANGLES, obj.mesh.indexCount, gl.UNSIGNED_SHORT, 0);
+  // Uniform locations
+  const uModel = gl.getUniformLocation(program, "uModel");
+  const uView  = gl.getUniformLocation(program, "uView");
+  const uProj  = gl.getUniformLocation(program, "uProj");
+  const uNormalMatrix = gl.getUniformLocation(program, "uNormalMatrix");
+  const uDiffuse      = gl.getUniformLocation(program, "uDiffuse");
+  const uSpecular     = gl.getUniformLocation(program, "uSpecular");
+  const uShininess    = gl.getUniformLocation(program, "uShininess");
+
+  const uAmbientColor      = gl.getUniformLocation(program, "uAmbientColor");
+  const uDirLightDirView   = gl.getUniformLocation(program, "uDirLightDirView");
+  const uDirLightColor     = gl.getUniformLocation(program, "uDirLightColor");
+  const uPointLightPosView = gl.getUniformLocation(program, "uPointLightPosView");
+  const uPointLightColor   = gl.getUniformLocation(program, "uPointLightColor");
+  const uPointLightEnabled = gl.getUniformLocation(program, "uPointLightEnabled");
+
+  // Create meshes
+  const meshes = {
+    box: createMesh(gl, createBox()),
+    plane: createMesh(gl, createPlane()),
+    cyl: createMesh(gl, createCylinder(18))
+  };
+
+  // Build scene geometry instances
+  buildScene(gl, meshes);
+
+  // Light state for Part B
+  const dirLightWorldDir = v3norm([0.3, -1.0, 0.2]);
+  const dirLightColor    = [1.0, 0.98, 0.92];
+
+  const pointLightWorldPos = [10.0, 3.0, 2.0];
+  const pointLightColor    = [1.0, 0.95, 0.85];
+
+  let pointLightEnabled = true;
+
+  // GL state
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+
+  // Mouse controls
+  canvas.addEventListener("mousedown", (e)=>{
+    Camera.dragging = true;
+    Camera.lastX = e.clientX;
+    Camera.lastY = e.clientY;
+  });
+  window.addEventListener("mouseup", ()=>{
+    Camera.dragging = false;
+  });
+  window.addEventListener("mousemove", (e)=>{
+    if(!Camera.dragging) return;
+    const dx = e.clientX - Camera.lastX;
+    const dy = e.clientY - Camera.lastY;
+    Camera.lastX = e.clientX;
+    Camera.lastY = e.clientY;
+
+    Camera.yaw   += dx * 0.005;
+    Camera.pitch += dy * 0.005;
+    Camera.pitch = Math.max(-1.2, Math.min(0.2, Camera.pitch));
+  });
+
+  // Zoom
+  canvas.addEventListener("wheel", (e)=>{
+    e.preventDefault();
+    Camera.distance *= (e.deltaY > 0) ? 1.08 : 0.92;
+    Camera.distance = Math.max(8, Math.min(80, Camera.distance));
+  }, { passive: false });
+
+  // Keyboard
+  window.addEventListener("keydown", (e)=>{
+    const k = e.key.toLowerCase();
+    if(k === "r") resetCamera();
+    if(k === "l") pointLightEnabled = !pointLightEnabled;
+  });
+
+  // Compute camera view matrix
+  function getViewMatrix(){
+    const cy = Math.cos(Camera.yaw), sy = Math.sin(Camera.yaw);
+    const cp = Math.cos(Camera.pitch), sp = Math.sin(Camera.pitch);
+
+    const x = Camera.target[0] + Camera.distance * cp * sy;
+    const y = Camera.target[1] + Camera.distance * sp;
+    const z = Camera.target[2] + Camera.distance * cp * cy;
+
+    const eye = [x,y,z];
+    return mat4LookAt(eye, Camera.target, [0,1,0]);
   }
-  gl.bindVertexArray(null);
 
-  requestAnimationFrame(render);
+  // Render loop
+  function render(){
+    resize();
+
+    gl.clearColor(0.06, 0.06, 0.08, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    const aspect = canvas.width / Math.max(1, canvas.height);
+    const proj = mat4Perspective(60 * Math.PI/180, aspect, 0.1, 200);
+    const view = getViewMatrix();
+
+    gl.useProgram(program);
+    gl.uniformMatrix4fv(uView, false, new Float32Array(view));
+    gl.uniformMatrix4fv(uProj, false, new Float32Array(proj));
+
+    const dirView = v3norm(transformDirection(view, dirLightWorldDir));
+    const pointPosView = transformPoint(view, pointLightWorldPos);
+
+    gl.uniform3fv(uAmbientColor, new Float32Array([0.10, 0.10, 0.12]));
+
+    gl.uniform3fv(uDirLightDirView, new Float32Array(dirView));
+    gl.uniform3fv(uDirLightColor, new Float32Array(dirLightColor));
+
+    gl.uniform3fv(uPointLightPosView, new Float32Array(pointPosView));
+    gl.uniform3fv(uPointLightColor, new Float32Array(pointLightColor));
+    gl.uniform1i(uPointLightEnabled, pointLightEnabled ? 1 : 0);
+
+    for(const obj of Scene.objects){
+      gl.bindVertexArray(obj.mesh.vao);
+      gl.uniformMatrix4fv(uModel, false, new Float32Array(obj.model));
+
+      const normalMat = computeNormalMatrix(view, obj.model);
+      gl.uniformMatrix3fv(uNormalMatrix, false, new Float32Array(normalMat));
+
+      gl.uniform3fv(uDiffuse,  new Float32Array(obj.color));
+      gl.uniform3fv(uSpecular, new Float32Array(obj.specular));
+      gl.uniform1f(uShininess, obj.shininess);
+
+      gl.drawElements(gl.TRIANGLES, obj.mesh.indexCount, gl.UNSIGNED_SHORT, 0);
+    }
+    gl.bindVertexArray(null);
+
+    requestAnimationFrame(render);
+  }
+
+  resetCamera();
+  render();
 }
-resetCamera();
-render();
+
+// Ensure we initialize after the DOM is ready.
+if(document.readyState === "loading"){
+  window.addEventListener("DOMContentLoaded", initFinalProject);
+} else {
+  initFinalProject();
+}
