@@ -30,6 +30,16 @@ function v3norm(a){
   return [a[0]/l, a[1]/l, a[2]/l];
 }
 
+// Rotate a vector around Y axis (used for light animation)
+function rotateYVec(v, rad){
+  const c = Math.cos(rad), s = Math.sin(rad);
+  return [
+    v[0] * c + v[2] * s,
+    v[1],
+   -v[0] * s + v[2] * c
+  ];
+}
+
 // Column major 4x4 matrix utilities
 function mat4Identity(){
   return [
@@ -439,8 +449,8 @@ const Scene = {
   objects: []
 };
 
-function addObject(mesh, model, color, specular = [0.20, 0.20, 0.20], shininess = 16.0){
-  Scene.objects.push({ mesh, model, color, specular, shininess });
+function addObject(mesh, model, color, specular = [0.20, 0.20, 0.20], shininess = 16.0, group = "default"){
+  Scene.objects.push({ mesh, model, color, specular, shininess, group });
 }
 
 // Build the tennis center scene
@@ -538,7 +548,7 @@ function buildScene(gl, meshes){
       mat4Translate(x, 1.2, fenceZ),
       mat4Scale(0.08, 2.4, 0.08)
     );
-    addObject(meshes.box, model, [0.25, 0.27, 0.30], [0.50, 0.50, 0.50], 64.0);
+    addObject(meshes.box, model, [0.25, 0.27, 0.30], [0.50, 0.50, 0.50], 64.0, "fence");
   }
 
   // Top rail
@@ -548,7 +558,7 @@ function buildScene(gl, meshes){
       mat4Translate((fenceStartX+fenceEndX)/2, 2.2, fenceZ),
       mat4Scale(len, 0.06, 0.06)
     );
-    addObject(meshes.box, model, [0.22, 0.24, 0.27], [0.45, 0.45, 0.45], 48.0);
+    addObject(meshes.box, model, [0.22, 0.24, 0.27], [0.45, 0.45, 0.45], 48.0, "fence");
   }
 
   // Mid rail
@@ -558,7 +568,7 @@ function buildScene(gl, meshes){
       mat4Translate((fenceStartX+fenceEndX)/2, 1.2, fenceZ),
       mat4Scale(len, 0.06, 0.06)
     );
-    addObject(meshes.box, model, [0.22, 0.24, 0.27], [0.45, 0.45, 0.45], 48.0);
+    addObject(meshes.box, model, [0.22, 0.24, 0.27], [0.45, 0.45, 0.45], 48.0, "fence");
   }
 
   // Fence "panel" 
@@ -568,7 +578,7 @@ function buildScene(gl, meshes){
       mat4Translate((fenceStartX+fenceEndX)/2, 1.2, fenceZ),
       mat4Scale(len, 2.2, 0.02)
     );
-    addObject(meshes.box, model, [0.18, 0.20, 0.22]);
+    addObject(meshes.box, model, [0.18, 0.20, 0.22], [0.25, 0.25, 0.25], 24.0, "fence");
   }
 
   // "Tennis Courts" rectangle sign on the fence 
@@ -577,7 +587,7 @@ function buildScene(gl, meshes){
       mat4Translate(-1.0, 1.6, fenceZ - 0.08),
       mat4Scale(1.8, 0.7, 0.05)
     );
-    addObject(meshes.box, model, [0.85, 0.85, 0.86]);
+    addObject(meshes.box, model, [0.85, 0.85, 0.86], [0.15, 0.15, 0.15], 10.0, "fence");
   }
 
   //  Court area behind fence 
@@ -665,7 +675,7 @@ function initFinalProject(){
   // Try to find the expected canvas, otherwise fall back to the first canvas on the page.
   const canvas = document.getElementById("glcanvas") || document.querySelector("canvas");
   if(!canvas){
-    console.error("FinalProject: No canvas found. Add <canvas id=\"glcanvas\"></canvas> to your HTML, or ensure this script runs after the canvas is created. - FinalProject.js:668");
+    console.error("FinalProject: No canvas found. Add <canvas id=\"glcanvas\"></canvas> to your HTML, or ensure this script runs after the canvas is created. - FinalProject.js:678");
     return;
   }
 
@@ -721,14 +731,22 @@ function initFinalProject(){
   // Build scene geometry instances
   buildScene(gl, meshes);
 
-  // Light state for Part B
-  const dirLightWorldDir = v3norm([0.3, -1.0, 0.2]);
-  const dirLightColor    = [1.0, 0.98, 0.92];
+  // Light state for Part C (animated + day/night modes)
+  const baseDirLightWorldDir = v3norm([0.3, -1.0, 0.2]);
+  const baseDirLightColorDay = [1.0, 0.98, 0.92];
+  const baseDirLightColorNight = [0.35, 0.45, 0.70];
 
-  const pointLightWorldPos = [10.0, 3.0, 2.0];
-  const pointLightColor    = [1.0, 0.95, 0.85];
+  const basePointLightWorldPos = [10.0, 3.0, 2.0]; // near entrance
+  const pointLightColorWarm = [1.0, 0.95, 0.85];
+  const pointLightColorCool = [0.75, 0.85, 1.0];
 
   let pointLightEnabled = true;
+  let fenceVisible = true;
+  let animationsEnabled = true;
+  let dayMode = true;
+
+  let lastTime = performance.now();
+  let t = 0.0;
 
   // GL state
   gl.enable(gl.DEPTH_TEST);
@@ -766,8 +784,21 @@ function initFinalProject(){
   // Keyboard
   window.addEventListener("keydown", (e)=>{
     const k = e.key.toLowerCase();
+
     if(k === "r") resetCamera();
+
+    // Toggle entrance point light
     if(k === "l") pointLightEnabled = !pointLightEnabled;
+
+    // Pause / resume animations
+    if(k === "p") animationsEnabled = !animationsEnabled;
+
+    // Toggle fence visibility
+    if(k === "f") fenceVisible = !fenceVisible;
+
+    // Day / Night presets
+    if(k === "1") dayMode = true;
+    if(k === "2") dayMode = false;
   });
 
   // Compute camera view matrix
@@ -787,7 +818,7 @@ function initFinalProject(){
   function render(){
     resize();
 
-    gl.clearColor(0.06, 0.06, 0.08, 1);
+    gl.clearColor(0.70, 0.82, 0.951222, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const aspect = canvas.width / Math.max(1, canvas.height);
@@ -798,19 +829,44 @@ function initFinalProject(){
     gl.uniformMatrix4fv(uView, false, new Float32Array(view));
     gl.uniformMatrix4fv(uProj, false, new Float32Array(proj));
 
-    const dirView = v3norm(transformDirection(view, dirLightWorldDir));
-    const pointPosView = transformPoint(view, pointLightWorldPos);
+    // ---- Time / animation step ----
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - lastTime) / 1000.0);
+    lastTime = now;
+    if(animationsEnabled) t += dt;
 
-    gl.uniform3fv(uAmbientColor, new Float32Array([0.10, 0.10, 0.12]));
+    // ---- Animated lights in world space ----
+    const sunAngle = t * 0.15; // slow day sweep
+    const dirLightWorldDirNow = rotateYVec(baseDirLightWorldDir, sunAngle);
+
+    // Small circular motion for entrance light
+    const entranceAngle = t * 0.8;
+    const pointLightWorldPosNow = [
+      basePointLightWorldPos[0] + Math.cos(entranceAngle) * 0.6,
+      basePointLightWorldPos[1] + Math.sin(entranceAngle * 0.5) * 0.2,
+      basePointLightWorldPos[2] + Math.sin(entranceAngle) * 0.6
+    ];
+
+    // ---- Convert to view space ----
+    const dirView = v3norm(transformDirection(view, dirLightWorldDirNow));
+    const pointPosView = transformPoint(view, pointLightWorldPosNow);
+
+    // ---- Day/Night tuning ----
+    const ambient = dayMode ? [0.12, 0.12, 0.14] : [0.03, 0.04, 0.07];
+    const dirColor = dayMode ? baseDirLightColorDay : baseDirLightColorNight;
+    const pColor = dayMode ? pointLightColorWarm : pointLightColorCool;
+
+    gl.uniform3fv(uAmbientColor, new Float32Array(ambient));
 
     gl.uniform3fv(uDirLightDirView, new Float32Array(dirView));
-    gl.uniform3fv(uDirLightColor, new Float32Array(dirLightColor));
+    gl.uniform3fv(uDirLightColor, new Float32Array(dirColor));
 
     gl.uniform3fv(uPointLightPosView, new Float32Array(pointPosView));
-    gl.uniform3fv(uPointLightColor, new Float32Array(pointLightColor));
+    gl.uniform3fv(uPointLightColor, new Float32Array(pColor));
     gl.uniform1i(uPointLightEnabled, pointLightEnabled ? 1 : 0);
 
     for(const obj of Scene.objects){
+      if(!fenceVisible && obj.group === "fence") continue;
       gl.bindVertexArray(obj.mesh.vao);
       gl.uniformMatrix4fv(uModel, false, new Float32Array(obj.model));
 
